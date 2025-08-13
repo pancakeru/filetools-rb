@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>卡牌分类器</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 30px;
+      max-width: 800px;
+      margin: auto;
+      background-image: url("images/pinkkU.jpg");
+      background-repeat: repeat;
+    }
+
+    h2 {
+      margin-bottom: 10px;
+    }
+
+    label {
+      display: block;
+      margin-top: 12px;
+    }
+
+    input[type="number"] {
+      width: 80px;
+    }
+
+    .section {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      background-color: white;
+    }
+
+    .row {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin-top: 20px;
+      cursor: pointer;
+    }
+
+    .tag {
+      display: inline-block;
+      background: #eee;
+      padding: 5px 10px;
+      border-radius: 6px;
+      margin-right: 10px;
+    }
+
+    #resultTable {
+    transition: all 0.3s ease;
+    }
+
+    #toggleTableBtn {
+        display: none;
+        margin-top: 20px;
+        margin-left: 41%;
+        font-size: 14px;
+        padding: 6px 12px;
+        border-radius: 6px;
+        background-color: #f0f0f0;
+        border: 1px solid #ccc;
+        cursor: pointer;
+    }
+
+    #contentContainer {
+      background-color: rgb(255, 255, 255, 0.8);
+      margin-top: 0%;
+      margin-bottom: 0%;
+      padding: 2%;
+      border-radius: 1%;
+    }
+
+  </style>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+</head>
+<body>
+<div id="contentContainer">
+  <h1 style="margin-left: 30%;">🃏 卡牌分类和打包器</h1>
+
+  <div class="section" id="folderDropZone">
+  <h2>拖放卡牌文件夹</h2>
+  <div id="folderDropArea" style="
+    border: 2px dashed #aaa;
+    border-radius: 10px;
+    padding: 40px;
+    text-align: center;
+    color: #555;
+    cursor: pointer;
+    transition: border-color 0.3s ease;
+  ">
+    📂 拖放包含 PNG 图片的文件夹到此区域
+    <br><br>
+    （或点击此处手动选择文件夹）
+  </div>
+  <input type="file" id="folderInput" webkitdirectory directory multiple style="display: none;">
+  <button id="clearBtn" style="margin-top: 10px; margin-left: 40%; font-size: 14px;
+        padding: 6px 12px;
+        border-radius: 6px;
+        background-color: #f0f0f0;
+        border: 1px solid #ccc;
+        cursor: pointer;">🗑 清除上传文件</button>
+</div>
+
+<div id="folderFilterContainer" style="margin-top: 20px; display: flex; flex-direction: column; align-items: center;"></div>
+
+<p style="font-size: small; text-align: center; align-self: center;">没有符合任何筛选条件的文件会被自动放入一个单独的文件夹中。</p>
+
+<button
+  id="addFolderBtn"
+  style="
+    display: inline-block;
+    margin-top: 10px;
+    padding: 6px 12px;
+    font-size: 13px;
+    width: 400px;
+    border-radius: 6px;
+    background-color: #e0e0e0;
+    border: 1px solid #ccc;
+    cursor: pointer;
+"
+onclick="NewFolder()"
+>
+➕ 新增筛选文件夹
+</button>
+
+  <button onclick="applyAllFilters()" style="margin-left: 45%; margin-bottom: 2%;">提交</button>
+
+  <div class="section">
+    <h2>预览</h2>
+    <div id="previewBox">
+        <div id="resultSummary"></div>
+       
+       <div id="zipSection" style="margin-top: 20px; display: flex; flex-wrap: wrap; justify-content: center; gap: 30px;"></div>
+        <button id="toggleTableBtn" style="display: none;" onclick="tableControl()">⬇️ 查看详细结果</button>
+       
+        <div style="text-align: center; margin-top: 30px;">
+        <button onclick="downloadAllFoldersZip()" style="padding: 8px 16px; font-size: 14px;">
+            📦 下载所有文件夹（整合打包）
+        </button>
+        </div>
+
+        <div id="resultsPreview" style="margin-top: 30px;">
+          <div style="text-align: center; margin-bottom: 10px;">
+           <button onclick="prevResultPage()" id="prevPageBtn" disabled 
+           style="font-size: 14px;
+        padding: 6px 12px;
+        border-radius: 6px;
+        background-color: #f0f0f0;
+        border: 1px solid #ccc;
+        cursor: pointer;">⬅️ 上一页</button>
+            <button onclick="nextResultPage()" id="nextPageBtn" style="font-size: 14px;
+        padding: 6px 12px;
+        border-radius: 6px;
+        background-color: #f0f0f0;
+        border: 1px solid #ccc;
+        cursor: pointer;" disabled>下一页 ➡️</button>
+        </div>
+
+  <div id="resultTableContainer"></div>
+</div>
+        <div id="resultTable" style="display: none; margin-top: 10px;"></div>
+    </div>
+</div>
+
+  </div>
+
+
+<!--JAVASCRIPT STARTS HERE-->
+  <script>
+let folderCount = 0;
+let currentPage = 0;
+const foldersPerPage = 2;
+
+function downloadZip(fileArray, zipName) {
+  if (!fileArray || fileArray.length === 0) {
+    alert("没有文件可下载！");
+    return;
+  }
+
+  const zip = new JSZip();
+
+  const sortedFiles = fileArray.slice().sort((a, b) => {
+    return a.name.localeCompare(b.name, 'zh-Hans', { numeric: true, sensitivity: 'base' });
+  });
+
+  sortedFiles.forEach(file => {
+    zip.file(file.name, file);
+  });
+
+  zip.generateAsync({ type: "blob" }).then(content => {
+    saveAs(content, zipName);
+  });
+}
+
+//fetch folder path
+ const folderDropArea = document.getElementById("folderDropArea");
+const folderInput = document.getElementById("folderInput");
+
+let droppedFiles = [];
+let folderStats = []; 
+
+let filteredFiles = [];
+let excludedFiles = [];
+
+let isTableVisible = false;
+let folderResults = []; // store per-folder results
+
+let importedNames = [];
+
+folderDropArea.addEventListener("click", () => {
+  folderInput.click(); // trigger manual folder select
+});
+
+window.addEventListener("DOMContentLoaded", () => {
+    NewFolder();
+  });
+
+folderInput.addEventListener("change", (e) => {
+  const files = Array.from(e.target.files).filter(file => file.name.toLowerCase().endsWith(".png"));
+  handleFolderDrop(files);
+  folderInput.value = ""; // reset so same folder can be reselected
+});
+
+function updateDropDisplay() {
+  const total = droppedFiles.length;
+  let html = `<div style="text-align: center;">📁 已加载 ${total} 张图片`;
+
+  if (folderStats.length > 0) {
+    html += `<br><br>来自以下文件夹：<br>`;
+    folderStats.forEach(f => {
+      html += `${f.folderName}：${f.count} 张<br>`;
+    });
+  }
+
+  html += `</div>`;
+  folderDropArea.innerHTML = html;
+
+  console.log("📦 当前 PNG 文件总数：", total);
+}
+
+
+function downloadAllFoldersZip() {
+  if (!folderResults || folderResults.length === 0) {
+    alert("没有任何筛选结果！");
+    return;
+  }
+
+  const masterZip = new JSZip();
+
+  folderResults.forEach((result, index) => {
+    const folderName = result.customName || `筛选文件夹 ${result.folderNumber}`;
+    const sortedFiles = result.files.slice().sort((a, b) =>
+      a.name.localeCompare(b.name, 'zh-Hans', { numeric: true, sensitivity: 'base' })
+    );
+
+    sortedFiles.forEach(file => {
+      masterZip.folder(folderName).file(file.name, file);
+    });
+  });
+
+  masterZip.generateAsync({ type: "blob" }).then(content => {
+    saveAs(content, "所有筛选结果.zip");
+  });
+}
+
+
+document.getElementById("clearBtn").addEventListener("click", () => {
+  droppedFiles = [];
+  folderStats = [];
+  folderDropArea.innerHTML = `📂 拖放包含 PNG 图片的文件夹到此区域<br><br>（或点击此处手动选择文件夹）`;
+  console.log("🗑 已清除所有上传文件");
+});
+
+folderDropArea.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  folderDropArea.style.borderColor = "#666";
+});
+folderDropArea.addEventListener("dragleave", () => {
+  folderDropArea.style.borderColor = "#aaa";
+});
+folderDropArea.addEventListener("drop", (e) => {
+  e.preventDefault();
+  folderDropArea.style.borderColor = "#aaa";
+  const items = [...e.dataTransfer.items];
+  const allFiles = [];
+
+  for (let item of items) {
+    const entry = item.webkitGetAsEntry?.();
+    if (entry && entry.isDirectory) {
+      readAllFromDirectory(entry, allFiles).then(() => {
+        handleFolderDrop(allFiles);
+      });
+      return;
+    } else {
+      const file = item.getAsFile();
+      if (file) allFiles.push(file);
+    }
+  }
+
+
+  // fallback if no directory
+  handleFolderDrop(allFiles);
+});
+
+function handleFolderDrop(fileList) {
+    console.log("✅ Folder selected! Files:", fileList.length);
+
+  const newFiles = Array.from(fileList).filter(file => file.name.toLowerCase().endsWith(".png"));
+
+  const existingPaths = new Set(droppedFiles.map(f => f.webkitRelativePath || f.name));
+
+  // Track how many new files are from each folder
+  const localFolderCounts = {};
+
+  newFiles.forEach(file => {
+    const path = file.webkitRelativePath || file.name;
+    if (!existingPaths.has(path)) {
+      droppedFiles.push(file);
+
+      // Get folder name
+      const folder = path.includes("/") ? path.split("/")[0] : "(未知文件夹)";
+      localFolderCounts[folder] = (localFolderCounts[folder] || 0) + 1;
+    }
+  });
+
+  // Merge folder counts into folderStats
+  for (const folder in localFolderCounts) {
+    const existing = folderStats.find(f => f.folderName === folder);
+    if (existing) {
+      existing.count += localFolderCounts[folder];
+    } else {
+      folderStats.push({ folderName: folder, count: localFolderCounts[folder] });
+    }
+  }
+
+  updateDropDisplay();
+}
+
+async function readAllFromDirectory(entry, collectedFiles, baseFolder = null) {
+  return new Promise((resolve) => {
+    const reader = entry.createReader();
+    reader.readEntries(async (entries) => {
+      for (const item of entries) {
+        if (item.isFile) {
+          await new Promise(res => item.file(file => {
+            // Store top-level folder name from the first file path
+            if (file.webkitRelativePath) {
+  const folderName = file.webkitRelativePath.split("/")[0];
+  const existing = folderStats.find(f => f.folderName === folderName);
+  if (!existing) {
+    folderStats.push({ folderName: folderName, count: 1 });
+  } else {
+    existing.count += 1;
+  }
+}
+            collectedFiles.push(file);
+            res();
+          }));
+        } else if (item.isDirectory) {
+          await readAllFromDirectory(item, collectedFiles);
+        }
+      }
+      resolve();
+    });
+  });
+}
+
+//CSV reader
+readAllFromDirectory(entry, allFiles).then(() => {
+  handleFolderDrop(allFiles);
+});
+
+//CSV importng names
+
+
+//NUMBER FILTERING
+const rangeLow = parseInt(document.getElementById("rangeLow").value, 10);
+const rangeHigh = parseInt(document.getElementById("rangeHigh").value, 10);
+
+function passesNumberRangeFilter(filename, min, max) {
+  const match = filename.match(/\d{3}/); // looks for 3 consecutive digits
+  if (!match) return false;
+
+  const num = parseInt(match[0], 10);
+  if (isNaN(num)) return false;
+
+  if (min !== null && num < min) return false;
+  if (max !== null && num > max) return false;
+
+  return true;
+}
+
+
+//SUBMIT
+function applyAllFilters() {
+let inputPool = droppedFiles.slice(); // start with all files
+
+folderResults = [];
+currentPage = 0;
+const folderBlocks = document.querySelectorAll(".folder-block");
+
+folderBlocks.forEach((block, index) => {
+  const rangeLow = parseInt(block.querySelector(".rangeLow").value, 10);
+  const rangeHigh = parseInt(block.querySelector(".rangeHigh").value, 10);
+  const tagInput = block.querySelector(".tagInput").value;
+  const tagMode = block.querySelector(".tagMode").value;
+  const customName = block.querySelector(".folderNameInput").value.trim();
+
+  const oddOnly = block.querySelector(".filterOdd").checked;
+  const evenOnly = block.querySelector(".filterEven").checked;
+  const includeAlts = block.querySelector(".includeAlts").checked;
+  const includeOn = block.querySelector(".includeOnFiles").checked;
+  const includeXXX = block.querySelector(".includeXXX").checked;
+
+  const tagList = tagInput
+    .toUpperCase()
+    .split(/[\s,]+/)
+    .filter(tag => tag.length > 0 && /^[A-Z0-9]+$/.test(tag));
+
+  const matched = inputPool.filter(file => {
+const name = file.name.toUpperCase();
+
+let importedList = [];
+
+if (block.dataset.imported) {
+  importedList = JSON.parse(block.dataset.imported);
+ 
+  const useTag = block.querySelector(".useTagMatch").checked;
+
+  const matchesCSV = importedList.some(entry => {
+    const tagMatch = !useTag || (entry.tag && name.includes(entry.tag));
+    const numMatch = name.includes(entry.num);
+    return tagMatch && numMatch;
+  });
+
+  if (!matchesCSV) return false;
+}
+
+    // === Number matching ===
+    const match = name.match(/\d{3}/);
+    const isXXX = name.includes("XXX");
+
+    if(isXXX) {
+      if (!includeXXX) {
+        return false;
+      } else {
+        return true;
+      }
+    }
+
+      if (!match) return false;
+      const num = parseInt(match[0], 10);
+      if (!isNaN(rangeLow) && num < rangeLow) return false;
+      if (!isNaN(rangeHigh) && num > rangeHigh) return false;
+
+      if (oddOnly && !evenOnly && num % 2 !== 1) return false;
+      if (evenOnly && !oddOnly && num % 2 !== 0) return false;
+
+
+    // === Alt Art filter ===
+    const digitIndex = match ? name.indexOf(match[0]) : -1;
+    const afterChar = digitIndex >= 0 ? name.charAt(digitIndex + 3) : "-";
+    if (!includeAlts && afterChar !== "-") return false;
+
+    // === Overnumber filter ===
+    if (!includeOn && name.includes("-ON-")) return false;
+
+    // === Tag matching ===
+    if (tagList.length > 0) {
+      const tagMatchFn = (tag) => {
+        const regex = new RegExp(`(^|[^A-Z0-9])${tag}([^A-Z0-9]|$)`);
+        return regex.test(name);
+      };
+
+      if (tagMode === "and" && !tagList.every(tagMatchFn)) return false;
+      if (tagMode === "or" && !tagList.some(tagMatchFn)) return false;
+    }
+
+    return true;
+  });
+
+  // Store results
+  folderResults.push({
+    folderNumber: index + 1,
+    customName: customName || `筛选文件夹 ${index + 1}`,
+    files: matched
+  });
+
+  // Update remaining pool
+  inputPool = inputPool.filter(file => !matched.includes(file));
+});
+
+  folderResults.push({
+    folderNumber: folderResults.length+1,
+    customName: "未匹配文件夹",
+    files: inputPool,
+    isExcluded: true
+  });
+  console.log("Folder results: ", folderResults, "Imported List: ", importedNames);
+  updateZipButtons(folderResults);
+  currentPage = 0;
+  renderResultTablePage();
+}
+
+//RESULTS TABLE
+function nextResultPage() {
+  if ((currentPage + 1) * foldersPerPage < folderResults.length) {
+    currentPage++;
+    renderResultTablePage();
+  }
+}
+
+function prevResultPage() {
+  if (currentPage > 0) {
+    currentPage--;
+    renderResultTablePage();
+  }
+}
+
+function renderResultTablePage() {
+  const container = document.getElementById("resultTableContainer");
+  container.innerHTML = ""; // clear existing
+
+  const startIndex = currentPage * foldersPerPage;
+  const pageResults = folderResults.slice(startIndex, startIndex + foldersPerPage);
+
+  const table = document.createElement("table");
+  table.style.borderCollapse = "collapse";
+  table.style.width = "100%";
+  table.style.margin = "auto";
+  table.border = "1";
+
+  const headerRow = document.createElement("tr");
+  pageResults.forEach(result => {
+    const th = document.createElement("th");
+    th.textContent = result.customName || `筛选文件夹 ${result.folderNumber}`;
+    headerRow.appendChild(th);
+  });
+  table.appendChild(headerRow);
+
+  // max rows = max number of files in either column
+  const maxLength = Math.max(...pageResults.map(r => r.files.length));
+  for (let i = 0; i < maxLength; i++) {
+    const row = document.createElement("tr");
+    pageResults.forEach(result => {
+      const td = document.createElement("td");
+      td.textContent = result.files[i]?.name || "";
+      td.style.padding = "4px 8px";
+      row.appendChild(td);
+    });
+    table.appendChild(row);
+  }
+
+  container.appendChild(table);
+
+  // Button state
+  document.getElementById("prevPageBtn").disabled = currentPage === 0;
+  document.getElementById("nextPageBtn").disabled = (currentPage + 1) * foldersPerPage >= folderResults.length;
+}
+
+
+
+function tableControl() {
+     const tableContainer = document.getElementById("resultTable");
+    const button = document.getElementById("toggleTableBtn");
+
+  const isVisible = tableContainer.style.display !== "none";
+
+  if (isVisible) {
+    // HIDE the table
+    tableContainer.innerHTML = "";
+    tableContainer.style.display = "none";
+    button.textContent = "⬇️ 显示详细信息";
+    tableContainer.style.display = "none";
+    isTableVisible = false;
+  } else {
+    // SHOW the table and build content
+    let html = `
+      <table border="1" cellpadding="8" style="border-collapse: collapse; width: 100%;">
+        <thead>
+          <tr>
+            <th>✅ 符合筛选</th>
+            <th>🚫 未符合筛选</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    const maxLength = Math.max(filteredFiles.length, excludedFiles.length);
+
+    for (let i = 0; i < maxLength; i++) {
+      html += "<tr>";
+      html += `<td>${filteredFiles[i]?.name || ""}</td>`;
+      html += `<td>${excludedFiles[i]?.name || ""}</td>`;
+      html += "</tr>";
+    }
+
+    html += "</tbody></table>";
+
+    tableContainer.innerHTML = html;
+    tableContainer.style.display = "block";
+    button.textContent = "⬆️ 隐藏详细信息";
+    isTableVisible = true;
+  }
+
+ // console.log("Ref: " + tableContainer + ", Status: " + isVisible);
+}
+
+
+//Zipping the FOlders
+function updateZipButtons(folderResults) {
+  const container = document.getElementById("zipSection");
+  container.innerHTML = ""; // Clear old content
+
+  folderResults.forEach((result, index) => {
+    const fileCount = result.files.length;
+    const isExcluded = result.isExcluded;
+    const label = result.customName;
+
+    const block = document.createElement("div");
+    block.style.textAlign = "center";
+    block.style.width = "200px";
+
+    if (fileCount > 0) {
+      block.innerHTML = `
+        <div style="font-size: 48px;">📁</div>
+        <p>${label}<br>${fileCount} 张</p>
+        <button onclick="downloadZip(folderResults[${index}].files, '${label}.zip')">📥 下载</button>
+      `;
+    } else {
+      block.innerHTML = `
+        <div style="font-size: 48px; color: gray;">📁</div>
+        <p>${label}<br>0 张</p>
+        <div style="color: gray;">⚠️ 没有符合的文件</div>
+      `;
+    }
+
+    container.appendChild(block);
+  });
+}
+
+//Changing the UI for AND OR
+function tagModeText(selectElement) {
+  const folderBlock = selectElement.closest(".folder-block");
+  const helper = folderBlock.querySelector(".tagHelperText");
+
+  if (selectElement.value === "and") {
+    helper.textContent = "必须包含输入的所有标签";
+  } else {
+    helper.textContent = "任意标签符合即可通过筛选";
+  }
+}
+
+//NEWWWW BLOCKKK
+function NewFolder() {
+  folderCount++;
+  //console.log("new folder", container, addbBtn);
+  const container = document.getElementById("folderFilterContainer");
+  const addbBtn = document.getElementById("addFolderBtn");
+
+  const block = document.createElement("div");
+
+  block.classList.add("folder-block");
+  block.setAttribute("data-folder-id", folderCount);
+  block.style.marginBottom = "20px";
+  block.style.padding = "12px";
+  block.style.border = "1px solid #ccc";
+  block.style.borderRadius = "8px";
+  block.style.backgroundColor = "white";
+
+  block.innerHTML = `
+    <h2>📁 筛选文件夹 ${folderCount}</h2>
+    <label>
+      文件夹名称：
+      <input type="text" class="folderNameInput" placeholder="例如：编号卡组、无标签卡组" style="width: 90%; margin-top: 6px; margin-bottom: 12px;" />
+    </label>
+    <div class="row">
+      <label>
+        编号范围（例如：5-10）：
+        <input type="number" class="rangeLow" placeholder="最小" min="0" max="999" />
+        —
+        <input type="number" class="rangeHigh" placeholder="最大" min="0" max="999" />
+      </label>
+    </div>
+
+    <div style="margin-bottom: 15px;">
+      <label for="tagMode">标签匹配模式：</label>
+    <select class="tagMode" onchange="tagModeText(this)">
+      <option value="or" selected>任意标签（OR）</option>
+      <option value="and">全部标签（AND）</option>
+  </select>
+  <input
+    type="text"
+    class="tagInput"
+    placeholder="请输入标签，例如：OGN, Annie, R"
+    style="margin-top: 8px; width: 300px;"
+  />
+  <div class="tagHelperText" style="color: gray; font-size: 13px; margin-top: 4px;">
+    任意标签符合即可通过筛选
+  </div>
+
+  <div style="margin-top: 20px;">
+  <label>
+  📎 导入 Airtable CSV：
+  <input type="file" class="csvInput" accept=".csv" />
+</label>
+<label style="font-size: small; margin-top: 0%;">
+  <input type="checkbox" class="useTagMatch" unchecked />
+  同时匹配标签（TAG）和编号（NUM）
+</label>
+</div>
+
+  </div>
+    <div class="row">
+      <label><input type="checkbox" class="filterOdd" /> 只包含奇数</label>
+      <label><input type="checkbox" class="filterEven" /> 只包含偶数</label>
+      <label><input type="checkbox" class="includeAlts" unchecked /> 包含Alt</label>
+      <label><input type="checkbox" class="includeOnFiles" unchecked /> 包含OVERNUMBER</label>
+      <label><input type="checkbox" class="includeXXX" checked /> 包含没有编号（XXX）</label>
+    </div>
+    <button class="removeFolderBtn" style="float: right; font-size: 12px; background-color: #ffdddd; border: 1px solid #cc0000; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">
+  ❌ 删除此文件夹
+</button>
+  `;
+
+  const csvInput = block.querySelector(".csvInput");
+const useTagCheckbox = block.querySelector(".useTagMatch");
+
+csvInput.addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  parseCSVAndStore(block, file, useTagCheckbox);
+});
+
+  // Append to container
+  container.appendChild(block);
+  container.appendChild(addbBtn);
+  addbBtn.style.display = "inline-block";
+
+  block.querySelector(".removeFolderBtn").addEventListener("click", () => {
+  const allFolders = document.querySelectorAll(".folder-block");
+
+  // Prevent deleting the last one
+  if (allFolders.length === 1) {
+    alert("至少需要保留一个筛选文件夹！");
+    return;
+  }
+
+  block.remove(); // remove this block
+  reindexFolders(); // re-label folder numbers if needed
+});
+}
+
+function reindexFolders() {
+  const blocks = document.querySelectorAll(".folder-block");
+  blocks.forEach((block, index) => {
+    block.setAttribute("data-folder-id", index + 1);
+
+    // Optional: auto-update default folder name input
+    const nameInput = block.querySelector(".folderNameInput");
+    if (nameInput && nameInput.value.startsWith("筛选文件夹")) {
+      nameInput.value = `筛选文件夹 ${index + 1}`;
+    }
+
+    // Optional: update <h2> header if you're using those
+    const heading = block.querySelector("h2, h3");
+    if (heading && heading.textContent.includes("筛选文件夹")) {
+      heading.textContent = `📁 筛选文件夹 ${index + 1}`;
+    }
+  });
+
+  // Reset folderCount to match current count
+  folderCount = blocks.length;
+}
+
+function parseCSVAndStore(block, file, useTagCheckbox) {
+  const reader = new FileReader();
+
+  reader.onload = function (event) {
+    const text = event.target.result;
+    const lines = text.split("\n");
+
+    const parsedConditions = [];
+
+    lines.forEach(line => {
+      const raw = line.split(",")[0].trim().toUpperCase();
+
+      if (!raw.endsWith("_CARDNAME")) return;
+
+      const beforeCardname = raw.split("_CARDNAME")[0];
+      const parts = beforeCardname.split(/[-_/]/);
+
+      const num = parts[parts.length - 2]?.padStart(3, "0");
+      const tag = parts[parts.length - 3];
+
+      if (tag && num && /^\d{3}$/.test(num)) {
+        parsedConditions.push({ tag, num });
+      }
+    });
+
+    block.dataset.imported = JSON.stringify(parsedConditions);
+    block.dataset.useTagMatch = useTagCheckbox?.checked ? "true" : "false";
+
+    alert(`✅ 成功导入 ${parsedConditions.length} 条筛选条件`);
+    console.log("📂 导入条件：", parsedConditions);
+  };
+
+  reader.readAsText(file);
+}
+
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Airtable图片下载</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background-color: #f7f7f7;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 60px;
+    }
+    h1 {
+      color: #333;
+    }
+    #uploadBtn {
+      padding: 14px 28px;
+      font-size: 16px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 30px;
+      transition: background-color 0.2s ease;
+    }
+    #uploadBtn:hover {
+      background-color: #0056b3;
+    }
+    #fileInput {
+      display: none;
+    }
+    #status {
+      margin-top: 30px;
+      font-size: 14px;
+      color: #333;
+      white-space: pre-line;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🖼️ Airtable图片下载</h1>
+  <button id="uploadBtn">📎 Upload CSV File</button>
+  <input type="file" id="fileInput" accept=".csv" />
+  <div id="status"></div>
+  <img src="images/csv-instructions.png">
+  <script>
+    const fileInput = document.getElementById("fileInput");
+    const uploadBtn = document.getElementById("uploadBtn");
+    const statusBox = document.getElementById("status");
+
+    uploadBtn.addEventListener("click", () => {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file || !file.name.endsWith(".csv")) {
+        statusBox.textContent = "❌ Please upload a valid CSV file.";
+        return;
+      }
+
+      const text = await file.text();
+      const lines = text.split("\n").filter(line => line.trim());
+      const zip = new JSZip();
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+
+        const filename = line.split(",")[0]?.trim();
+        const linkMatch = line.match(/\((https?:\/\/[^)]+)\)/);
+        const url = linkMatch ? linkMatch[1].trim() : null;
+
+        if (!filename || !url) {
+          failCount++;
+          continue;
+        }
+
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("Fetch failed");
+
+          const blob = await res.blob();
+          zip.file(filename, blob);
+          successCount++;
+          statusBox.textContent = `✅ Added ${filename} (${successCount} success, ${failCount} failed)`;
+        } catch (err) {
+          console.error(`❌ Failed to fetch: ${filename}`, err);
+          failCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        const content = await zip.generateAsync({ type: "blob" });
+        saveAs(content, "downloaded_images.zip");
+        statusBox.textContent += `\n🎉 Download ready: downloaded_images.zip`;
+      } else {
+        statusBox.textContent += `\n⚠️ No images downloaded.`;
+      }
+    });
+  </script>
+
+</body>
+</html>
