@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tools</title>
+  <style>
+    :root{
+      --bg: #0f1226;
+      --card: #171a33;
+      --text: #e9ecff;
+      --sub: #b9c0ff;
+      --accent: #6c7bff;
+      --accent-2: #8b5cf6;
+      --radius: 16px;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    @media (prefers-color-scheme: light){
+      :root{
+        --bg:#f5f7ff; --card:#ffffff; --text:#0b0e17; --sub:#4b5563;
+        --accent:#4f46e5; --accent-2:#7c3aed;
+        --shadow: 0 10px 30px rgba(31,41,55,.12);
+      }
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; min-height:100svh; display:grid; place-items:center;
+      background:
+        radial-gradient(1200px 600px at 20% -10%, rgba(108,123,255,.25), transparent 60%),
+        radial-gradient(1000px 600px at 120% 110%, rgba(139,92,246,.18), transparent 60%),
+        var(--bg);
+      color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Helvetica,Arial,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei","Source Han Sans SC",sans-serif;
+      padding:24px;
+    }
+    .wrap{
+      width:min(720px, 100%);
+      background:var(--card);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:28px 28px 34px;
+      border:1px solid rgba(255,255,255,.06);
+    }
+    h1{
+      margin:0 0 18px; font-size:clamp(28px, 3.4vw, 36px); letter-spacing:.3px;
+      font-weight:800;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      -webkit-background-clip:text; background-clip:text; color:transparent;
+    }
+    p.note{
+      margin:0 0 22px; color:var(--sub); font-size:14px;
+    }
+    .grid{
+      display:grid; gap:14px; grid-template-columns:repeat(auto-fit, minmax(200px,1fr));
+    }
+    button.tool{
+      appearance:none; border:0; border-radius:12px; padding:14px 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      color:var(--text); font-size:16px; font-weight:700; letter-spacing:.2px;
+      outline:2px solid transparent; outline-offset:2px;
+      transition: transform .12s ease, box-shadow .12s ease, background .2s ease, outline-color .2s ease;
+      box-shadow: 0 6px 16px rgba(0,0,0,.15);
+      cursor:pointer;
+    }
+    button.tool:hover{
+      transform: translateY(-2px);
+      box-shadow: 0 10px 24px rgba(0,0,0,.22);
+      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.03));
+      outline-color: rgba(108,123,255,.35);
+    }
+    button.tool:active{ transform: translateY(0); }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <h1>Tools</h1>
+    <p class="note">选择一个工具开始：</p>
+
+    <section class="grid">
+      <button class="tool" id="pdfBtn">PDF 生成器</button>
+      <button class="tool" id="sortBtn">文件夹整理</button>
+      <button class="tool" id="airtableBtn">Airtable PNG 下载器</button>
+    </section>
+  </main>
+
+  <script>
+    // Hook these up to routes/pages when ready:
+    document.getElementById('pdfBtn').onclick = () => location.href = './cardprinter.html';
+    document.getElementById('sortBtn').onclick = () => location.href = './cardsorter.html';
+    document.getElementById('airtableBtn').onclick = () => location.href = './photodownloader.html';
+  </script>
+</body>
+</html>
