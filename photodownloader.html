@@ -8,7 +8,7 @@
   <style>
     body {
       font-family: sans-serif;
-      background-color: #f7f7f7;
+      background-image: url("./images/pinkkU.jpg");
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -44,11 +44,15 @@
 </head>
 <body>
 
+  <div style="background-color: rgb(255, 255, 255, 0.8); padding: 5%; margin:0%; justify-content: center; justify-items: center; border-radius: 2%;">
   <h1>🖼️ Airtable图片下载</h1>
   <button id="uploadBtn">📎 Upload CSV File</button>
   <input type="file" id="fileInput" accept=".csv" />
   <div id="status"></div>
+  <p>用 "Kylin Asset Review DONE" CSV</p>
   <img src="images/csv-instructions.png">
+  </div>
+
   <script>
     const fileInput = document.getElementById("fileInput");
     const uploadBtn = document.getElementById("uploadBtn");
